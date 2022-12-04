@@ -97,14 +97,6 @@ class ExchangeAgent(Agent):
 
         return Order(Time, EventType, OrderID, Size, Price, Direction, SenderID)
 
-    def load_initializing_messages(self, start, end):
-        self.initial_messages = pd.read_csv()
-
-
-self.data = DataRetriever(self.ticker, self.directory, self.date)
-
-self.data.get_messages()
-
 
 class ImbalanceAgent(Agent):
 
@@ -123,20 +115,27 @@ class ImbalanceAgent(Agent):
     def generate_order(self) -> Order:
 
         if (self.exchange.orderbook.imbalance_at_best_n(10) < -0.5) and (self.cash > 0):
-            return Order(Time=self.exchange.orderbook.time + 0.001,
-                         EventType=1,
-                         OrderId=-1,
-                         Size=100,
-                         Price=self.exchange.orderbook.best_ask + 300,
-                         Direction=1,
-                         AgentID='Imb1')
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderId=-100,
+                         Size=100, Price=self.exchange.orderbook.best_ask - 200, Direction=1, AgentID='Imb1')
 
-        elif (ob.imbalance_at_best_n(10) > 0.5) and (self.assets > 0):
-            return Order(Time=ob.time + 0.001, EventType=1, OrderId=-2,
-                         Size=100, Price=ob.best_bid - 2000, Direction=-1, AgentID='Imb1')
+        elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.5) and (self.assets > 0):
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderId=-200,
+                         Size=100, Price=self.exchange.orderbook.best_bid + 200, Direction=-1, AgentID='Imb1')
 
         else:
 
-            return Order(Time=ob.time + 0.001, EventType=7, OrderId=-1,
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=7, OrderId=-1,
                          Size=1, Price=ob.best_ask + 2000, Direction=1, AgentID='Imb1')
 
+    def clear_order(self, order: Order):
+        if order.Direction == 1:
+            self.assets += order.Size
+            self.cash -= order.Size * order.Price
+        else:
+            self.assets -= order.Size
+            self.cash += order.Size * order.Price
+
+        self.executed_orders.append(order)
+
+    def current_balance(self, order):
+        return self.cash + self.assets * order.Price

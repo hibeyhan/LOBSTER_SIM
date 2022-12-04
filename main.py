@@ -1,6 +1,4 @@
-import pandas as pd
 import datetime as dt
-from models import Order
 
 class Simulator:
 
