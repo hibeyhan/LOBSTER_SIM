@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import time
 import datetime as dt
+from orders import Order
 
 
 class DataRetriever:

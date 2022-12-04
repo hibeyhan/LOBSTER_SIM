@@ -14,8 +14,6 @@ class Simulator:
             ticker: str = None,
             directory: str = None,
             date=None,
-            start: dt.datetime = None,
-            end: dt.datetime = None,
             exchange=Exchange(),
             messages=None,
             historical_midprice=[],
@@ -27,8 +25,6 @@ class Simulator:
         self.ticker = ticker
         self.directory = directory
         self.date = date
-        self.start = start
-        self.end = end
         self.exchange = exchange
         self.messages = messages
         self.historical_midprice = historical_midprice
@@ -39,16 +35,13 @@ class Simulator:
     def initialize_market(self):
 
         # Agents are added
-        self.exchange.agents["Imb1"] = ImbalanceAgent(name="Imb1", assets=1000, cash=20000000000,
+        self.exchange.agents["Imb1"] = ImbalanceAgent(assets=1000, cash=20000000000,
                                                       exchange=self.exchange, sent_orders=[], executed_orders=[],
                                                       historical_balance=[])
 
-        self.exchange.agents["Ex1"] = ExchangeAgent(name="Ex1", assets=10000000, cash=20000000000000,
+        self.exchange.agents["Ex1"] = ExchangeAgent(assets=10000000, cash=20000000000000,
                                                     exchange=self.exchange, sent_orders=[], executed_orders=[],
-                                                    historical_balance=[], initial_messages=pd.DataFrame(), trade_messages=pd.DataFrame())
-
-        # 'name', 'assets', 'cash', 'exchange', 'executed_orders', 'messages', and 'historical_balance'
-        # load messages from real data
+                                                    historical_balance=[])
 
         self.messages = DataRetriever(ticker=self.ticker, directory=self.directory, trade_date=self.date)
         self.messages.get_messages()
@@ -82,9 +75,9 @@ class Simulator:
 
             if self.exchange.orderbook.time % 60 <= 1:
 
-                if self.exchange.agents["Imb1"].get_action(self.exchange.orderbook):
+                if self.exchange.agents["Imb1"].get_action():
 
-                    order_to_submit = self.exchange.agents["Imb1"].generate_order(self.exchange.orderbook)
+                    order_to_submit = self.exchange.agents["Imb1"].generate_order()
 
                     try:
                         order_to_submit.OrderId = max(self.order_id_list) + 1

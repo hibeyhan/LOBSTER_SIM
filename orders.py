@@ -3,7 +3,7 @@ class Order:
     def __init__(
             self,
             Time: float = None,
-            EventType: str = None,
+            EventType: int = None,
             OrderID: int = None,
             Size: int = None,
             Price: int = None,

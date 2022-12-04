@@ -10,22 +10,21 @@ from orders import Order
 class Agent(metaclass=abc.ABCMeta):
 
     def __init__(
-             self,
-             name: str = None,
-             assets: int = None,
-             cash: float = None,
-             exchange: Exchange = None,
-             sent_orders: List[Order] = None,
-             executed_orders: List = [],
-             historical_balance: List = []
+            self,
+            assets: int = None,
+            cash: float = None,
+            exchange: Exchange = None,
+            sent_orders: List[Order] = None,
+            executed_orders: List = [],
+            historical_balance: List = []
     ):
-            self.name = name
-            self.assets = assets
-            self.cash = cash
-            self.exchange = exchange
-            self.sent_orders = sent_orders
-            self.executed_orders = executed_orders
-            self.historical_balance = historical_balance
+
+        self.assets = assets
+        self.cash = cash
+        self.exchange = exchange
+        self.sent_orders = sent_orders
+        self.executed_orders = executed_orders
+        self.historical_balance = historical_balance
 
     @abc.abstractmethod
     def get_action(self, lob_state: np.ndarray) -> np.ndarray:
@@ -55,29 +54,6 @@ class Agent(metaclass=abc.ABCMeta):
 
 
 class ExchangeAgent(Agent):
-    def __init__(self,
-                 name,
-                 assets,
-                 cash,
-                 exchange,
-                 sent_orders,
-                 executed_orders,
-                 historical_balance,
-                 initial_messages,
-                 trade_messages
-                 ):
-        Agent.__init__(
-                 name,
-                 assets,
-                 cash,
-                 exchange,
-                 sent_orders,
-                 executed_orders,
-                 historical_balance
-        )
-
-        self.initial_messages = initial_messages
-        self.trade_messages = trade_messages
 
     def get_action(self, lob_state: np.ndarray):
         return
@@ -100,6 +76,7 @@ class ExchangeAgent(Agent):
 
         return Order(Time, EventType, OrderID, Size, Price, Direction, SenderID)
 
+
 class ImbalanceAgent(Agent):
 
     def get_action(self):
@@ -117,17 +94,17 @@ class ImbalanceAgent(Agent):
     def generate_order(self) -> Order:
 
         if (self.exchange.orderbook.imbalance_at_best_n(10) < -0.5) and (self.cash > 0):
-            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderId=-100,
-                         Size=100, Price=self.exchange.orderbook.best_ask - 200, Direction=1, AgentID='Imb1')
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderID=-100,
+                         Size=100, Price=self.exchange.orderbook.best_ask + 200, Direction=1, SenderID='Imb1')
 
         elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.5) and (self.assets > 0):
-            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderId=-200,
-                         Size=100, Price=self.exchange.orderbook.best_bid + 200, Direction=-1, AgentID='Imb1')
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=1, OrderID=-200,
+                         Size=100, Price=self.exchange.orderbook.best_bid - 200, Direction=-1, SenderID='Imb1')
 
         else:
 
-            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=7, OrderId=-1,
-                         Size=1, Price=ob.best_ask + 2000, Direction=1, AgentID='Imb1')
+            return Order(Time=self.exchange.orderbook.time + 0.001, EventType=7, OrderID=-1,
+                         Size=1, Price=self.exchange.orderbook.best_ask + 2000, Direction=1, SenderID='Imb1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:

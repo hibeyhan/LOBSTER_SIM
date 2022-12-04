@@ -5,6 +5,7 @@ from orders import Order
 import datetime
 from typing import Deque, Dict, List
 from sortedcontainers import SortedDict
+from collections import deque
 
 
 class Exchange:
@@ -371,9 +372,6 @@ class Exchange:
         else:
             return messages, orders
 
-    def get_initial_orderbook_from_orders(self):
-        pass
-
     @property
     def best_sell_price(self):
         return next(iter(self.orderbook.sell.keys()), np.infty)
@@ -384,15 +382,9 @@ class Exchange:
 
     @property
     def orderbook_price_range(self):
-        sell_prices = reversed(self.central_orderbook.sell)
-        worst_sell = 9999999999
-        while worst_sell >= 9999999999:
-            worst_sell = next(sell_prices)
-        buy_prices = iter(self.central_orderbook.buy.keys())
-        worst_buy = 0
-        while worst_buy <= 0:
-            worst_buy = next(buy_prices)
-        return worst_buy, worst_sell
+        sell_prices = reversed(self.orderbook.sell)
+        buy_prices = iter(self.orderbook.buy.keys())
+        return sell_prices, buy_prices
 
     @property
     def next_order_to_buy(self):
@@ -407,7 +399,7 @@ class Exchange:
         position = 0
         if x.Price in y:
             for i, j in enumerate(y[x.Price]):
-                if j.OrderId == x.OrderId:
+                if j.OrderID == x.OrderID:
                     position = i
                     break
                 else:
