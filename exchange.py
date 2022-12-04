@@ -16,7 +16,7 @@ class Exchange:
             tick_size: int = 100,
             orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 1664000000),
             time: datetime.datetime = None,
-            agents=[],
+            agents={},
             executed_orders: List[Order] = []
     ):
         self.name = name

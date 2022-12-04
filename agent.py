@@ -5,6 +5,7 @@ import os
 from models import Order
 from exchange import Exchange
 from typing import Deque, Dict, List
+from orders import Order
 
 class Agent(metaclass=abc.ABCMeta):
 
@@ -95,8 +96,9 @@ class ExchangeAgent(Agent):
         Direction = message[5]
         SenderID = message[6]
 
-        return Order(Time, EventType, OrderID, Size, Price, Direction, SenderID)
+        self.sent_orders.append(Order(Time, EventType, OrderID, Size, Price, Direction, SenderID))
 
+        return Order(Time, EventType, OrderID, Size, Price, Direction, SenderID)
 
 class ImbalanceAgent(Agent):
 

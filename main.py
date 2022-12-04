@@ -1,4 +1,11 @@
 import datetime as dt
+from exchange import Exchange
+from agent import ExchangeAgent
+from agent import ImbalanceAgent
+import numpy as np
+import pandas as pd
+from dataretriever import DataRetriever
+
 
 class Simulator:
 
@@ -10,9 +17,11 @@ class Simulator:
             start: dt.datetime = None,
             end: dt.datetime = None,
             exchange=Exchange(),
+            messages=None,
             historical_midprice=[],
             time=None,
-            time_log=[]
+            time_log=[],
+            order_id_list=[]
 
     ):
         self.ticker = ticker
@@ -21,68 +30,61 @@ class Simulator:
         self.start = start
         self.end = end
         self.exchange = exchange
+        self.messages = messages
         self.historical_midprice = historical_midprice
         self.time = time
         self.time_log = time_log
+        self.order_id_list = order_id_list
 
-    def initilize_market(self):
+    def initialize_market(self):
 
         # Agents are added
+        self.exchange.agents["Imb1"] = ImbalanceAgent(name="Imb1", assets=1000, cash=20000000000,
+                                                      exchange=self.exchange, sent_orders=[], executed_orders=[],
+                                                      historical_balance=[])
 
-        self.exchange.agents.append(ImbalanceAgent("IMB1", 1000, 27322000000, self.exchange, [], pd.DataFrame(), []))
+        self.exchange.agents["Ex1"] = ExchangeAgent(name="Ex1", assets=10000000, cash=20000000000000,
+                                                    exchange=self.exchange, sent_orders=[], executed_orders=[],
+                                                    historical_balance=[], initial_messages=pd.DataFrame(), trade_messages=pd.DataFrame())
+
         # 'name', 'assets', 'cash', 'exchange', 'executed_orders', 'messages', and 'historical_balance'
         # load messages from real data
 
-        self.load_messages()
+        self.messages = DataRetriever(ticker=self.ticker, directory=self.directory, trade_date=self.date)
+        self.messages.get_messages()
 
-        initial_period_messages = self.data.messages[(self.data.messages.Time >
-                                                      dt.datetime.strptime(self.start, '%Y-%m-%d %H:%M').timestamp())
-                                                     & (self.data.messages.Time < (
-                    dt.datetime.strptime(self.start, '%Y-%m-%d %H:%M').timestamp() + 900))]
+        for i in np.array(self.messages.initializing_period_messages):
 
-        for i in range(initial_period_messages.shape[0]):
-            time = initial_period_messages.iloc[i, 0]
-            event = initial_period_messages.iloc[i, 1]
-            orderID = initial_period_messages.iloc[i, 2]
-            size = initial_period_messages.iloc[i, 3]
-            price = initial_period_messages.iloc[i, 4]
-            direction = initial_period_messages.iloc[i, 5]
-            agentid = initial_period_messages.iloc[i, 6]
-
-            order = Order(time, event, orderID, size, price, direction, agentid)
+            order = self.exchange.agents["Ex1"].generate_order(i)
 
             self.exchange.order_evaluation(order)
 
-            self.exchange.orderbook.time = time
+            self.exchange.orderbook.time = order.Time
 
             self.time_log.append(self.exchange.orderbook.time)
 
     def trading_run(self):
-        self.order_id_list = list(self.data.messages.OrderID)
-        before = []
-        after = []
-        trade_period_messages = self.data.messages[
-            (self.data.messages.Time >= dt.datetime.strptime(self.start, '%Y-%m-%d %H:%M').timestamp() + 900)]
 
-        for i in range(trade_period_messages.shape[0]):
+        self.order_id_list = list(self.messages.messages)
 
-            time = trade_period_messages.iloc[i, 0]
-            event = trade_period_messages.iloc[i, 1]
-            orderID = trade_period_messages.iloc[i, 2]
-            size = trade_period_messages.iloc[i, 3]
-            price = trade_period_messages.iloc[i, 4]
-            direction = trade_period_messages.iloc[i, 5]
-            agentid = trade_period_messages.iloc[i, 6]
+        price_impact_before = []
+        price_impact_after = []
 
-            order = Order(time, event, orderID, size, price, direction, agentid)
+        for i in np.array(self.messages.trade_period_messages):
+
+            order = self.exchange.agents["Ex1"].generate_order(i)
 
             self.exchange.order_evaluation(order)
 
+            self.exchange.orderbook.time = order.Time
+
+            self.time_log.append(self.exchange.orderbook.time)
+
             if self.exchange.orderbook.time % 60 <= 1:
 
-                if self.exchange.agents[0].get_action(self.exchange.orderbook):
+                if self.exchange.agents["Imb1"].get_action(self.exchange.orderbook):
 
-                    order_to_submit = self.exchange.agents[0].generate_order(self.exchange.orderbook)
+                    order_to_submit = self.exchange.agents["Imb1"].generate_order(self.exchange.orderbook)
 
                     try:
                         order_to_submit.OrderId = max(self.order_id_list) + 1
@@ -91,54 +93,32 @@ class Simulator:
 
                         # measure price impact
 
-                        before.append(self.exchange.orderbook.midprice)
+                        price_impact_before.append(self.exchange.orderbook.midprice)
 
                         self.exchange.order_evaluation(order_to_submit)
 
-                        after.append(self.exchange.orderbook.midprice)
+                        price_impact_after.append(self.exchange.orderbook.midprice)
 
                         if order_to_submit in self.exchange.executed_orders:
-                            self.exchange.agents[0].clear_order(order_to_submit)
+
+                            self.exchange.agents["Imb1"].clear_order(order_to_submit)
 
                     except:
 
-                        print(order_to_submit)
+                        print("Check order submitted by Imbalance Agent")
 
-            self.exchange.agents[0].historical_balance.append(self.exchange.agents[0].current_balance(order))
+            self.exchange.agents["Imb1"].historical_balance.append(self.exchange.agents["Imb1"].current_balance(order))
 
             self.historical_midprice.append(self.exchange.orderbook.midprice)
 
-            self.exchange.orderbook.time = time
-
             self.time_log.append(self.exchange.orderbook.time)
 
-        self.price_impact = pd.DataFrame({"before": before, "after": after})
+        price_impact = pd.DataFrame({"before": price_impact_before, "after": price_impact_after})
+        self.exchange.agents["Imb1"].price_impact = price_impact["after"] - price_impact["before"]
 
-    def load_messages(self):
-
-        self.data = DataRetriever(self.ticker, self.directory, self.date)
-
-        self.data.get_messages()
 
     def get_lob_moment(self):
 
         return self.exchange.orderbook.get_snapshot(level=50)
 
-    def generate_orders(start, end, messages):
 
-        message_list = messages[(messages.Time > dt.datetime.strptime(start, '%Y-%m-%d %H:%M').timestamp())
-                                & (messages.Time < dt.datetime.strptime(end, '%Y-%m-%d %H:%M').timestamp())]
-
-        Orders = []
-
-        for i in range(message_list.shape[0]):
-            time = message_list.iloc[i, 0]
-            event = message_list.iloc[i, 1]
-            orderID = message_list.iloc[i, 2]
-            size = message_list.iloc[i, 3]
-            price = message_list.iloc[i, 4]
-            direction = message_list.iloc[i, 5]
-            agentid = message_list.iloc[i, 6]
-            Orders.append(Order(time, event, orderID, size, price, direction, agentid))
-
-        return Orders
