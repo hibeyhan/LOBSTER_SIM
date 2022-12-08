@@ -35,7 +35,7 @@ class DataRetriever:
         messages.columns = ["Time", "EventType", "OrderID", "Size", "Price", "Direction", "SenderID"]
         messages["Time"] = messages["Time"].apply(lambda n: n + time.mktime(
                                                             dt.datetime.strptime(self.trade_date, "%Y-%m-%d").timetuple()))
-        messages["SenderID"] = "EX1"
+        messages["SenderID"] = "Ex1"
 
         self.messages = messages
 

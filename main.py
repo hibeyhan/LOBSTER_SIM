@@ -5,6 +5,9 @@ from agent import ImbalanceAgent
 import numpy as np
 import pandas as pd
 from dataretriever import DataRetriever
+from models import Order
+import random
+import copy
 
 
 class Simulator:
@@ -18,7 +21,9 @@ class Simulator:
             messages=None,
             historical_midprice=[],
             time=None,
+            orderbook_moments={},
             time_log=[],
+            submitted_orders=[],
             order_id_list=[]
 
     ):
@@ -29,7 +34,9 @@ class Simulator:
         self.messages = messages
         self.historical_midprice = historical_midprice
         self.time = time
+        self.orderbook_moments = orderbook_moments
         self.time_log = time_log
+        self.submitted_orders = submitted_orders
         self.order_id_list = order_id_list
 
     def initialize_market(self):
@@ -56,12 +63,11 @@ class Simulator:
 
             self.time_log.append(self.exchange.orderbook.time)
 
+            #self.orderbook_moments[self.exchange.orderbook.time] = copy.deepcopy(self.exchange.orderbook)
+
     def trading_run(self):
 
-        self.order_id_list = list(self.messages.messages)
-
-        price_impact_before = []
-        price_impact_after = []
+        self.order_id_list = list(self.messages.messages.OrderID)
 
         for i in np.array(self.messages.trade_period_messages):
 
@@ -73,45 +79,49 @@ class Simulator:
 
             self.time_log.append(self.exchange.orderbook.time)
 
-            if self.exchange.orderbook.time % 60 <= 1:
+            # self.orderbook_moments[self.exchange.orderbook.time] = copy.deepcopy(self.exchange.orderbook)
 
-                if self.exchange.agents["Imb1"].get_action():
-
-                    order_to_submit = self.exchange.agents["Imb1"].generate_order()
-
-                    try:
-                        order_to_submit.OrderId = max(self.order_id_list) + 1
-
-                        self.order_id_list.append(order_to_submit.OrderId)
-
-                        # measure price impact
-
-                        price_impact_before.append(self.exchange.orderbook.midprice)
-
-                        self.exchange.order_evaluation(order_to_submit)
-
-                        price_impact_after.append(self.exchange.orderbook.midprice)
-
-                        if order_to_submit in self.exchange.executed_orders:
-
-                            self.exchange.agents["Imb1"].clear_order(order_to_submit)
-
-                    except:
-
-                        print("Check order submitted by Imbalance Agent")
-
-            self.exchange.agents["Imb1"].historical_balance.append(self.exchange.agents["Imb1"].current_balance(order))
+            self.order_generation()
 
             self.historical_midprice.append(self.exchange.orderbook.midprice)
 
             self.time_log.append(self.exchange.orderbook.time)
 
-        price_impact = pd.DataFrame({"before": price_impact_before, "after": price_impact_after})
-        self.exchange.agents["Imb1"].price_impact = price_impact["after"] - price_impact["before"]
 
+    def order_generation(self):
 
-    def get_lob_moment(self):
+        #the list agents is shuffled to give priority decision randomly to the agents
 
-        return self.exchange.orderbook.get_snapshot(level=50)
+        agent_name_list = list(self.exchange.agents.keys())
+
+        random.shuffle(agent_name_list)
+
+        for i in agent_name_list:
+
+            if (i != "Ex1") and (self.exchange.agents[i].get_action(self.exchange.orderbook)):
+
+                order_to_submit = self.exchange.agents[i].generate_order(self.exchange.orderbook)
+
+                order_to_submit.OrderId = max(self.order_id_list) + 1
+
+                self.submitted_orders.append(order_to_submit)
+
+                self.order_id_list.append(order_to_submit.OrderId)
+
+                price_impact_before = self.exchange.orderbook.midprice
+
+                self.exchange.order_evaluation(order_to_submit)
+
+                price_impact_after = self.exchange.orderbook.midprice
+
+                #self.orderbook_moments[self.exchange.orderbook.time] = copy.deepcopy(self.exchange.orderbook)
+
+                self.exchange.agents[i].my_price_impact.append(price_impact_after-price_impact_before)
+
+                if order_to_submit in self.exchange.executed_orders:
+                    self.exchange.agents[i].clear_order(order_to_submit)
+
+            self.exchange.agents[i].historical_balance.append(self.exchange.agents[i].current_balance)
+
 
 

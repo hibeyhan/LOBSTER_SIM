@@ -15,7 +15,7 @@ class Exchange:
             name: str = "NASDAQ",
             ticker: str = "PAYX",
             tick_size: int = 100,
-            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 1664000000),
+            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 2000000000),
             time: datetime.datetime = None,
             agents={},
             executed_orders: List[Order] = []
@@ -124,7 +124,6 @@ class Exchange:
                         self.executed_orders.append(order)
                         if len(self.orderbook.buy[self.orderbook.best_bid]) == 0:
                             del self.orderbook.buy[self.orderbook.best_bid]
-
 
                 elif order.Size > self.orderbook.size_at_best_bid:
                     if len(self.orderbook.buy[self.orderbook.best_bid]) != 0:

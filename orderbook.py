@@ -18,7 +18,7 @@ class Orderbook:
         try:
             return next(reversed(self.buy.keys()))
         except:
-            return -9999999
+            return -9999999999
 
     @property
     def size_at_best_bid(self):
@@ -38,7 +38,7 @@ class Orderbook:
         try:
             return next(iter(self.sell.keys()))
         except:
-            return 9999999
+            return 99999999999
 
     @property
     def size_at_best_ask(self):
@@ -81,7 +81,10 @@ class Orderbook:
 
     @property
     def midprice(self):
-        return (self.best_ask + self.best_bid) / 2
+        if abs(self.best_ask - self.best_bid) > 10000:
+            return min(abs(self.best_ask), abs(self.best_bid))
+        else:
+            return (self.best_ask + self.best_bid) / 2
 
     @property
     def imbalance_at_best_prices(self):

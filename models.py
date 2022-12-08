@@ -20,7 +20,7 @@ class Order():
         Size:int,
         Price:int,
         Direction:int,
-        AgentID=None
+        SenderID=None
      ):
         self.Time = Time
         self.EventType = EventType
@@ -28,5 +28,5 @@ class Order():
         self.Size = Size
         self.Price = Price
         self.Direction = Direction
-        self.AgentID = AgentID
+        self.SenderID = SenderID
 
