@@ -6,8 +6,10 @@ import datetime
 from typing import Deque, Dict, List
 from sortedcontainers import SortedDict
 from collections import deque
+import math
+import os
 
-
+#this is class for exchange
 class Exchange:
 
     def __init__(
@@ -15,10 +17,13 @@ class Exchange:
             name: str = "NASDAQ",
             ticker: str = "PAYX",
             tick_size: int = 100,
-            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 2000000000),
+            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 2000000000), #here  buy and sell side start with an empty dictionary
             time: datetime.datetime = None,
-            agents={},
-            executed_orders: List[Order] = []
+            agents={}, #this is list of agents trade on
+            executed_orders: List[Order] = [],
+            ts_data=[], #this stores desired frequency data i.e. 15 seconds
+            time_log=[],
+            second_data=[]
     ):
         self.name = name
         self.ticker = ticker
@@ -27,7 +32,11 @@ class Exchange:
         self.time = time
         self.agents = agents
         self.executed_orders = executed_orders
+        self.ts_data = ts_data
+        self.time_log = time_log
+        self.second_data = second_data
 
+    # function that doing order evaluation as exchange receives 7 types of order
     def order_evaluation(self, x: Order):
 
         if x.EventType == 5:
@@ -326,50 +335,6 @@ class Exchange:
                 if len(self.orderbook.buy[self.orderbook.best_bid]) == 0:
                     del self.orderbook.buy[self.orderbook.best_bid]
 
-    def get_available_dates(self, directory=r"C:\Users\Dell\Desktop\LOBSTER"):
-        path = os.path.join(directory, self.ticker)
-        files = os.listdir(path)
-        messages = [x for x in files if "message" in x]
-        orders = [x for x in files if "book" in x]
-        messages_dates = [x[x.find("_") + 1:x.find("_") + 11] for x in messages]
-        order_dates = [x[x.find("_") + 1:x.find("_") + 11] for x in orders]
-
-        if order_dates == order_dates:
-            return order_dates
-        else:
-            return "Messages files and orderbook files and orderbook files have different dates"
-
-    def get_initial_book(self, directory=r"C:\Users\Dell\Desktop\LOBSTER", date="2022-09-05", only_messages=False):
-
-        path = os.path.join(directory, self.ticker)
-        list_ = os.listdir(path)
-        messages_ = [x for x in list_ if ("message" in x) and (date in x)][0]
-        path2 = os.path.join(path, messages_)
-        messages = pd.read_csv(path2)
-        messages.columns = ["Time", "EventType", "OrderID", "Size", "Price", "Direction", "Extra"]
-
-        def create_cols(level):
-            cols = []
-            for i in range(1, level + 1):
-                cols.append("ASK_PRICE_" + str(i))
-                cols.append("ASK_QTY_" + str(i))
-                cols.append("BID_PRICE_" + str(i))
-                cols.append("BID_QTY_" + str(i))
-            return cols
-
-        orders_ = [x for x in list_ if ("book" in x) and (date in x)][0]
-        path3 = os.path.join(path, orders_)
-        orders = pd.read_csv(path3, nrows=1)
-        orders.columns = create_cols(int(orders.shape[1] / 4))
-        orders = orders.replace(to_replace=-9999999999, value=0)
-        orders = orders.replace(to_replace=9999999999, value=0)
-        orders = orders.replace(to_replace=1999999999, value=0)
-        orders = orders.replace(to_replace=1999990000, value=0)
-
-        if only_messages:
-            return messages
-        else:
-            return messages, orders
 
     @property
     def best_sell_price(self):
@@ -404,3 +369,8 @@ class Exchange:
                 else:
                     position = "NA"
         return position
+
+    def store_timeseries_data(self, order):
+        if len(self.time_log) > 2:
+            if math.floor(order.Time / 15) != math.floor(self.time_log[-2] / 15):
+                self.ts_data.append((order.Time, order.Price))

@@ -3,6 +3,7 @@ from sortedcontainers import SortedDict
 from dataclasses import dataclass
 import pandas as pd
 from dataclasses import dataclass
+import numpy as np
 from orders import Order
 
 
@@ -136,3 +137,8 @@ class Orderbook:
         asks = pd.DataFrame(ask)
 
         return pd.concat([bids, asks], axis=1)[:level]
+
+
+    def get_snapshot_row(self, level=20):
+
+        return np.array(self.get_snapshot(level=level)).reshape(1,4*level)
