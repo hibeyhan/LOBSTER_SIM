@@ -19,3 +19,9 @@ class Order:
         self.SenderID = SenderID
 
 
+    def get_order_attributes(self):
+
+        return [self.Time, self.EventType, self.OrderID, self.Size, self.Price, self.Direction, self.SenderID]
+
+
+

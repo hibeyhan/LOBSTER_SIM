@@ -88,12 +88,18 @@ class Orderbook:
             return (self.best_ask + self.best_bid) / 2
 
     @property
+    def weighted_midprice(self):
+        if abs(self.best_ask - self.best_bid) > 10000:
+            return None
+        else:
+            return self.best_bid * (1-self.imbalance_at_best_prices)+self.best_ask * self.imbalance_at_best_prices
+
+    @property
     def imbalance_at_best_prices(self):
-        return (self.size_at_best_bid - self.size_at_best_ask) / (self.size_at_best_bid + self.size_at_best_ask)
+        return self.size_at_best_bid / (self.size_at_best_bid + self.size_at_best_ask)
 
     def imbalance_at_best_n(self, n=10):
-        imbalance = (self.size_at_best_n_bid(n=n) - self.size_at_best_n_ask(n=n)) / (
-                    self.size_at_best_n_bid(n=n) + self.size_at_best_n_ask(n=n) + 1)
+        imbalance = self.size_at_best_n_bid(n=n) / (self.size_at_best_n_bid(n=n) + self.size_at_best_n_ask(n=n) + 1)
         return imbalance
 
     @property

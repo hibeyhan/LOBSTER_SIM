@@ -105,8 +105,8 @@ class ImbalanceAgent(Agent):
 
     def get_action(self, ob):
 
-        if ((ob.imbalance_at_best_n(10) < -0.3) & (self.cash > 0)) or (
-                (ob.imbalance_at_best_n(10) > 0.3) & (self.assets > 0)) and (ob.time % 60 <= 0.01):
+        if ((ob.imbalance_at_best_n(10) < 0.3) & (self.cash > 0)) or (
+                (ob.imbalance_at_best_n(10) > 0.7) & (self.assets > 0)) and (ob.time % 60 <= 0.01):
             return True
         else:
             return False
@@ -117,28 +117,27 @@ class ImbalanceAgent(Agent):
 
     def generate_order(self, ob) -> Order:
 
-        if (ob.imbalance_at_best_n(10) < -0.3) and (self.cash > 0):
+        if (ob.imbalance_at_best_n(10) < 0.3) and (self.cash > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 200, Direction=1, SenderID='Imb1')
+                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Imb1')
 
-        elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.3) and (self.assets > 0):
+        elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.7) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 200, Direction=-1, SenderID='Imb1')
+                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Imb1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 200, Direction=1, SenderID='Imb1')
+                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Imb1')
 
     @property
     def current_balance(self):
         return self.cash + self.assets * self.exchange.orderbook.midprice
-
-
+    
 class BollingerAgent(Agent):
 
     def get_action(self, ob):
-        if math.floor(ob.time / 15) != math.floor(self.exchange.time_log[-2] / 15):
+        if math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2] / 60):
             upper = self.bollinger_bands()[0]
             lower = self.bollinger_bands()[1]
 
@@ -161,16 +160,16 @@ class BollingerAgent(Agent):
         if (ob.best_ask < lower) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 200, Direction=1, SenderID='Bol1')
+                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
 
         elif (ob.best_ask > upper) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 200, Direction=-1, SenderID='Bol1')
+                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Bol1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 200, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:
@@ -190,14 +189,47 @@ class BollingerAgent(Agent):
     def bollinger_bands(self):
 
         data = [x[1] for x in self.exchange.ts_data]
-        rolling_mean = pd.Series(data[-60:]).mean()
-        rolling_std = pd.Series(data[-60:]).std()
+        rolling_mean = pd.Series(data[-300:]).mean()
+        rolling_std = pd.Series(data[-300:]).std()
 
         # Calculate the upper and lower Bollinger Bands
-        upper_band = rolling_mean + rolling_std*1
-        lower_band = rolling_mean - rolling_std*1
+        upper_band = rolling_mean + rolling_std*1.5
+        lower_band = rolling_mean - rolling_std*1.5
 
         return upper_band, lower_band
+
+
+class RegressionAgent(Agent):
+
+    def get_action(self, ob):
+
+        if abs(self.model.predict(ob) - self.exchange.orderbook.midprice) > 0:
+            return True
+        else:
+            return False
+
+    def name(self):
+
+        return "Regression Agent"
+
+    def generate_order(self, ob) -> Order:
+
+        if (self.model.predict(ob) > self.exchange.orderbook.midprice) and (self.cash > 0):
+            return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
+                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Reg1')
+
+        elif (self.model.predict(ob) < self.exchange.orderbook.midprice) and (self.assets > 0):
+            return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
+                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Reg1')
+
+        else:
+
+            return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
+                         Size=1, Price=ob.best_ask + 200, Direction=1, SenderID='Reg1')
+
+    @property
+    def current_balance(self):
+        return self.cash + self.assets * self.exchange.orderbook.midprice
 
 
 class LstmAgent(Agent):
@@ -222,16 +254,16 @@ class LstmAgent(Agent):
         if (self.prediction(self.exchange.orderbook) > ob.midprice*1.0001) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 200, Direction=1, SenderID='Bol1')
+                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
 
         elif (self.prediction(self.exchange.orderbook) < ob.midprice*0.9999) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 200, Direction=-1, SenderID='Bol1')
+                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Bol1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 200, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:

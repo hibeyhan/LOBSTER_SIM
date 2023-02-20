@@ -15,13 +15,13 @@ class Exchange:
     def __init__(
             self,
             name: str = "NASDAQ",
-            ticker: str = "PAYX",
+            ticker: str = "TSLA",
             tick_size: int = 100,
-            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 2000000000), #here  buy and sell side start with an empty dictionary
+            orderbook: Orderbook = Orderbook(SortedDict(), SortedDict(), 100, 2000000000),
             time: datetime.datetime = None,
-            agents={}, #this is list of agents trade on
+            agents={},
             executed_orders: List[Order] = [],
-            ts_data=[], #this stores desired frequency data i.e. 15 seconds
+            ts_data=[],
             time_log=[],
             second_data=[]
     ):

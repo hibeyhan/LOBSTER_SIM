@@ -43,6 +43,7 @@ class Simulator:
         self.submitted_orders = submitted_orders
         self.order_id_list = order_id_list
 
+
     #a function that initialize market, adds agents, endows initial wealth
     def initialize_market(self):
         #create a data retriever class
@@ -67,6 +68,11 @@ class Simulator:
                                                       exchange=self.exchange, sent_orders=[], executed_orders=[],
                                                       historical_balance=[[],[]], my_price_impact=[[],[]])
 
+        #This BollingerAgent who take action on Regression Agent
+        #self.exchange.agents["Reg1"] = RegressionAgent(assets=10000, cash=10000*self.messages.messages.Price[1],
+                                                     # exchange=self.exchange, sent_orders=[], executed_orders=[],
+                                                     # historical_balance=[[],[]], my_price_impact=[[],[]])
+
         #this loop takes a specified period for messages and ExchangeAgent feed them into the exchange, other agents do not take action at this step
 
         for i in np.array(self.messages.initializing_period_messages):
@@ -85,11 +91,13 @@ class Simulator:
 
             self.historical_midprice[1].append(self.exchange.orderbook.midprice)
 
-            if (len(self.exchange.time_log) > 1) and (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2])):
-                self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
-                self.exchange.second_data.append(copy.deepcopy(self.exchange.orderbook.midprice))
+            # saves moments of orderbook but it increase running time
+            #if (len(self.exchange.time_log) > 1) and (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2])):
+            #    self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
 
-       # self.exchange.agents["Lstm1"].model = get_data_and_train(self.historical_midprice[1])
+
+
+
     #this step is trading period, all agents come into the market and post orders
     def trading_run(self):
 
@@ -105,9 +113,9 @@ class Simulator:
 
             self.exchange.time_log.append(self.exchange.orderbook.time)
 
-            if math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]):
-                self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
-                self.exchange.second_data.append(copy.deepcopy(self.exchange.orderbook.midprice))
+            # saves moments of orderbook but it increase running time
+            #if (len(self.exchange.time_log) > 1) and (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2])):
+            #    self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
 
             self.order_generation()
 
@@ -117,17 +125,19 @@ class Simulator:
 
             self.historical_midprice[1].append(self.exchange.orderbook.midprice)
 
-            self.exchange.time_log.append(self.exchange.orderbook.time)
+            #self.exchange.time_log.append(self.exchange.orderbook.time)
 
-            if math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]):
-                self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
-                self.exchange.second_data.append(copy.deepcopy(self.exchange.orderbook.midprice))
+            # saves moments of orderbook but it increase running time
+            #if (len(self.exchange.time_log) > 1) and (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2])):
+            #    self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
 
             self.exchange.agents["Ex1"].historical_balance[0].append(self.exchange.orderbook.time)
 
             self.exchange.agents["Ex1"].historical_balance[1].append(self.exchange.agents["Ex1"].current_balance)
 
             print(dt.datetime.fromtimestamp(order.Time).time())
+
+
 
     #this is process that arrange priority of posting orders among agents that all is pseudo-random
 
@@ -156,6 +166,8 @@ class Simulator:
                 self.exchange.order_evaluation(order_to_submit)
 
                 price_impact_after = self.exchange.orderbook.midprice
+
+                self.exchange.time_log.append(self.exchange.orderbook.time)
 
                 #self.orderbook_moments[self.exchange.orderbook.time] = copy.deepcopy(self.exchange.orderbook)
 
@@ -232,5 +244,7 @@ class Simulator:
         model.fit(trainX, trainY, epochs=5, batch_size=10, verbose=1)
 
         return model
+
+
 
 
