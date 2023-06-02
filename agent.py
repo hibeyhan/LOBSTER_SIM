@@ -7,6 +7,9 @@ from typing import Deque, Dict, List
 from orders import Order
 import datetime
 import math
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from pickle import dump
 from pickle import load
 
@@ -21,7 +24,8 @@ class Agent(metaclass=abc.ABCMeta):
             executed_orders: List = [],
             historical_balance=[[],[]],
             my_price_impact: List=[[],[]],
-            model=None
+            model= None,
+            data = None
     ):
 
         self.assets = assets
@@ -31,7 +35,8 @@ class Agent(metaclass=abc.ABCMeta):
         self.executed_orders = executed_orders
         self.historical_balance = historical_balance
         self.my_price_impact = my_price_impact
-        model=model
+        self.model = model
+        self.data = data
 
     @abc.abstractmethod
     def get_action(self, lob_state) -> np.ndarray:
@@ -199,46 +204,11 @@ class BollingerAgent(Agent):
         return upper_band, lower_band
 
 
-class RegressionAgent(Agent):
+class RandomForest(Agent):
 
     def get_action(self, ob):
-
-        if abs(self.model.predict(ob) - self.exchange.orderbook.midprice) > 0:
-            return True
-        else:
-            return False
-
-    def name(self):
-
-        return "Regression Agent"
-
-    def generate_order(self, ob) -> Order:
-
-        if (self.model.predict(ob) > self.exchange.orderbook.midprice) and (self.cash > 0):
-            return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Reg1')
-
-        elif (self.model.predict(ob) < self.exchange.orderbook.midprice) and (self.assets > 0):
-            return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Reg1')
-
-        else:
-
-            return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Reg1')
-
-    @property
-    def current_balance(self):
-        return self.cash + self.assets * self.exchange.orderbook.midprice
-
-
-class LstmAgent(Agent):
-
-    def get_action(self, ob):
-        if math.floor(ob.time/60) != math.floor(self.exchange.time_log[-2]/60):
-
-            if (self.prediction(self.exchange.orderbook) > ob.midprice) \
-                    or (self.prediction(self.exchange.orderbook) < ob.midprice):
+        if math.floor(self.exchange.time_log[-1]/60) != math.floor(self.exchange.time_log[-2]/60):
+            if (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) or (self.model.predict.predict([np.array(self.data.iloc[-1,:-1])]) == 0):
                 return True
             else:
                 return False
@@ -247,16 +217,16 @@ class LstmAgent(Agent):
 
     def name(self):
 
-        return "LSTM Agent"
+        return "Random Forest"
 
     def generate_order(self, ob) -> Order:
 
-        if (self.prediction(self.exchange.orderbook) > ob.midprice*1.0001) and (self.cash > 0):
+        if (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
                          Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
 
-        elif (self.prediction(self.exchange.orderbook) < ob.midprice*0.9999) and (self.assets > 0):
+        elif (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) and (self.cash > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
                          Size=1, Price=ob.best_bid, Direction=-1, SenderID='Bol1')
 
@@ -280,17 +250,41 @@ class LstmAgent(Agent):
 
         return self.cash + self.assets * self.exchange.orderbook.midprice
 
-    def prediction(self, ob):
-        model = load_model('LSTM_trained.h5')
-        a=[]
-        for i in self.exchange.second_data[-30:]:
-            a.append((ob.midprice - min(self.exchange.second_data)) /
-                                                    (max(self.exchange.second_data) - min(self.exchange.second_data)))
+    def train_my_model(self):
 
-        prediction = model.predict(np.array([[a]]))
+        df = self.data
+        df["Time"] = df["Time"].apply(lambda x: np.floor(x))
+        table = df.groupby(['Time']).mean()
 
-        converted_prediction = min(self.exchange.second_data) +\
-                               prediction*(max(self.exchange.second_data) - min(self.exchange.second_data))
+        features = table
+        features["close_shifted"] = features["Midprice"].shift(1)
+        features["diff"] = features["Midprice"] - features["close_shifted"]
 
-        return converted_prediction
+        def fun(x):
+            if x <= 0:
+                return 0
+            else:
+                return 1
+
+        features["actual"] = features["diff"].apply(fun)
+        features = features.reset_index()
+        features.drop(["Time", "close_shifted", "diff"], axis=1, inplace=True)
+
+
+        # Create data
+        X = features.loc[:, "Midprice":"imbalance20"]
+        y = features["actual"]
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.01)
+
+
+        # creating a RF classifier
+        self.model= RandomForestClassifier(n_estimators=100)
+
+        # Training the model on the training dataset
+        # fit function is used to train the model using the training sets as parameters
+        self.model.fit(X_train, y_train)
+
+
+
+
 
