@@ -55,30 +55,29 @@ class Orderbook:
             return 0
 
     def size_at_best_n_ask(self, n=10):
-        try:
-            sum_ask = 0
-            for i in self.sell.keys()[:n]:
-                for j in self.sell[i]:
-                    sum_ask += j.Size
-
-            return sum_ask
-
-        except:
-
+        if not self.sell:
             return 0
+
+        sum_ask = 0
+
+        for i in self.sell.keys()[:n]:
+            sum_ask += sum(map(lambda x: x.Size, self.sell[i]))
+
+        return sum_ask
+
 
     def size_at_best_n_bid(self, n=10):
-        try:
-            sum_bid = 0
-            for i in self.buy.keys()[-n:]:
-                for j in self.buy[i]:
-                    sum_bid += j.Size
-
-            return sum_bid
-
-        except:
-
+        if not self.buy:
             return 0
+
+        sum_bid = 0
+
+        for i in self.buy.keys()[-n:]:
+            sum_bid += sum(map(lambda x: x.Size, self.buy[i]))
+
+        return sum_bid
+
+
 
     @property
     def midprice(self):
@@ -96,7 +95,7 @@ class Orderbook:
 
     @property
     def imbalance_at_best_prices(self):
-        return self.size_at_best_bid / (self.size_at_best_bid + self.size_at_best_ask)
+        return self.size_at_best_bid / (self.size_at_best_bid + self.size_at_best_ask+0.01)
 
     def imbalance_at_best_n(self, n=10):
         imbalance = self.size_at_best_n_bid(n=n) / (self.size_at_best_n_bid(n=n) + self.size_at_best_n_ask(n=n) + 1)

@@ -119,16 +119,16 @@ class ImbalanceAgent(Agent):
 
         if (ob.imbalance_at_best_n(10) < 0.3) and (self.cash > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Imb1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Imb1')
 
         elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.7) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Imb1')
+                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Imb1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Imb1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Imb1')
 
     @property
     def current_balance(self):
@@ -160,16 +160,16 @@ class BollingerAgent(Agent):
         if (ob.best_ask < lower) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
 
         elif (ob.best_ask > upper) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Bol1')
+                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Bol1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:
@@ -216,16 +216,16 @@ class RegressionAgent(Agent):
 
         if (self.model.predict(ob) > self.exchange.orderbook.midprice) and (self.cash > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Reg1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Reg1')
 
         elif (self.model.predict(ob) < self.exchange.orderbook.midprice) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Reg1')
+                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Reg1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 200, Direction=1, SenderID='Reg1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Reg1')
 
     @property
     def current_balance(self):
@@ -254,16 +254,16 @@ class LstmAgent(Agent):
         if (self.prediction(self.exchange.orderbook) > ob.midprice*1.0001) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=20, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
 
         elif (self.prediction(self.exchange.orderbook) < ob.midprice*0.9999) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=20, Price=ob.best_bid - 500, Direction=-1, SenderID='Bol1')
+                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Bol1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask + 500, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:

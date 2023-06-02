@@ -23,7 +23,7 @@ class Exchange:
             executed_orders: List[Order] = [],
             ts_data=[],
             time_log=[],
-            second_data=[]
+            second_data={"time":[], "midprice":[], "imb10":[]}
     ):
         self.name = name
         self.ticker = ticker
@@ -374,3 +374,4 @@ class Exchange:
         if len(self.time_log) > 2:
             if math.floor(order.Time / 15) != math.floor(self.time_log[-2] / 15):
                 self.ts_data.append((order.Time, order.Price))
+

@@ -28,7 +28,10 @@ class Simulator:
             orderbook_moments={},
             time_log=[],
             submitted_orders=[],
-            order_id_list=[]
+            order_id_list=[],
+            df_for_ml = {"Time":[], "Midprice":[], "Spread":[], "imbalance1":[], "imbalance2":[], "imbalance3":[],
+                         "imbalance4":[], "imbalance5":[],  "imbalance10":[],
+                         "imbalance20":[]}
 
     ):
         self.ticker = ticker
@@ -42,6 +45,7 @@ class Simulator:
         self.time_log = time_log
         self.submitted_orders = submitted_orders
         self.order_id_list = order_id_list
+        self.df_for_ml = df_for_ml
 
 
     #a function that initialize market, adds agents, endows initial wealth
@@ -76,7 +80,7 @@ class Simulator:
         #this loop takes a specified period for messages and ExchangeAgent feed them into the exchange, other agents do not take action at this step
 
         for i in np.array(self.messages.initializing_period_messages):
-
+            #this is to section that keep records of second data
             order = self.exchange.agents["Ex1"].generate_order(i)
 
             self.exchange.order_evaluation(order)
@@ -92,9 +96,17 @@ class Simulator:
             self.historical_midprice[1].append(self.exchange.orderbook.midprice)
 
             # saves moments of orderbook but it increase running time
-            #if (len(self.exchange.time_log) > 1) and (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2])):
-            #    self.orderbook_moments[math.floor(self.exchange.orderbook.time)-1654669800] = copy.deepcopy(self.exchange.orderbook)
-
+            if len(self.exchange.time_log) > 500:
+                self.df_for_ml["Time"].append(self.exchange.orderbook.time)
+                self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
+                self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
+                self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
+                self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
+                self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
+                self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
+                self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
+                self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
+                self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
 
 
@@ -134,6 +146,17 @@ class Simulator:
             self.exchange.agents["Ex1"].historical_balance[0].append(self.exchange.orderbook.time)
 
             self.exchange.agents["Ex1"].historical_balance[1].append(self.exchange.agents["Ex1"].current_balance)
+
+            self.df_for_ml["Time"].append(self.exchange.orderbook.time)
+            self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
+            self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
+            self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
+            self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
+            self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
+            self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
+            self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
+            self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
+            self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
             print(dt.datetime.fromtimestamp(order.Time).time())
 
