@@ -122,7 +122,7 @@ class Simulator:
     def trading_run(self):
 
         self.order_id_list = list(self.messages.messages.OrderID)
-
+        sil=0
         for i in np.array(self.messages.trade_period_messages):
 
             order = self.exchange.agents["Ex1"].generate_order(i)
@@ -155,24 +155,27 @@ class Simulator:
 
             self.exchange.agents["Ex1"].historical_balance[1].append(self.exchange.agents["Ex1"].current_balance)
 
-            if math.floor(self.exchange.time_log[-1]/60) != math.floor(self.exchange.time_log[-2]/60):
-                self.df_for_ml["Time"].append(self.exchange.orderbook.time)
-                self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
-                self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
-                self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
-                self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
-                self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
-                self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
-                self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
-                self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
-                self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
+            self.df_for_ml["Time"].append(self.exchange.orderbook.time)
+            self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
+            self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
+            self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
+            self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
+            self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
+            self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
+            self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
+            self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
+            self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
-                self.exchange.agents["RF1"].data = pd.DataFrame(self.df_for_ml).loc[-1][1:]
+            if math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]):
 
+                sil = sil+1
+                print(sil, self.exchange.orderbook.time)
+                df1 = pd.DataFrame(self.df_for_ml)
+                df1["Time"] = df1["Time"].apply(lambda x: np.floor(x/15))
+                df1 = df1.groupby(['Time'], as_index=False).mean()
+                self.exchange.agents["RF1"].data = df1.copy()
 
             print(dt.datetime.fromtimestamp(order.Time).time())
-
-
 
     #this is process that arrange priority of posting orders among agents that all is pseudo-random
 
@@ -202,7 +205,7 @@ class Simulator:
 
                 price_impact_after = self.exchange.orderbook.midprice
 
-                self.exchange.time_log.append(self.exchange.orderbook.time)
+                #self.exchange.time_log.append(self.exchange.orderbook.time)
 
                 #self.orderbook_moments[self.exchange.orderbook.time] = copy.deepcopy(self.exchange.orderbook)
 

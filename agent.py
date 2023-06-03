@@ -111,7 +111,8 @@ class ImbalanceAgent(Agent):
     def get_action(self, ob):
 
         if ((ob.imbalance_at_best_n(10) < 0.3) & (self.cash > 0)) or (
-                (ob.imbalance_at_best_n(10) > 0.7) & (self.assets > 0)) and (ob.time % 60 <= 0.01):
+                (ob.imbalance_at_best_n(10) > 0.7) & (self.assets > 0)) and (
+                math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2]/60)):
             return True
         else:
             return False
@@ -207,8 +208,9 @@ class BollingerAgent(Agent):
 class RandomForest(Agent):
 
     def get_action(self, ob):
-        if math.floor(self.exchange.time_log[-1]/60) != math.floor(self.exchange.time_log[-2]/60):
-            if (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) or (self.model.predict.predict([np.array(self.data.iloc[-1,:-1])]) == 0):
+        if math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2]/60):
+            if (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 1) or\
+                    (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 0):
                 return True
             else:
                 return False
@@ -221,19 +223,19 @@ class RandomForest(Agent):
 
     def generate_order(self, ob) -> Order:
 
-        if (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) and (self.cash > 0):
+        if (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 2) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
-                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='RF1')
 
-        elif (self.model.predict([np.array(self.data.iloc[-1,:-1])]) == 1) and (self.cash > 0):
+        elif (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 1) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
-                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='Bol1')
+                         Size=1, Price=ob.best_bid, Direction=-1, SenderID='RF1')
 
         else:
 
             return Order(Time=ob.time + 0.001, EventType=7, OrderID=-1,
-                         Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
+                         Size=1, Price=ob.best_ask, Direction=1, SenderID='RF1')
 
     def clear_order(self, order: Order):
         if order.Direction == 1:
@@ -261,10 +263,12 @@ class RandomForest(Agent):
         features["diff"] = features["Midprice"] - features["close_shifted"]
 
         def fun(x):
-            if x <= 0:
-                return 0
-            else:
+            if x <= -50:
                 return 1
+            elif x >= 50:
+                return 2
+            else:
+                return 0
 
         features["actual"] = features["diff"].apply(fun)
         features = features.reset_index()
