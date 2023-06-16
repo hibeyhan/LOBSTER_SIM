@@ -110,9 +110,10 @@ class ImbalanceAgent(Agent):
 
     def get_action(self, ob):
 
-        if ((ob.imbalance_at_best_n(10) < 0.3) & (self.cash > 0)) or (
-                (ob.imbalance_at_best_n(10) > 0.7) & (self.assets > 0)) and (
-                math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2]/60)):
+        if ((self.data.iloc[-1] < 0.3) & (self.cash > 0)) or (
+                (self.data.iloc[-1] > 0.7) & (self.assets > 0)) and (
+                (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]))\
+                    & (math.floor(self.exchange.orderbook.time) % 10 == 0)):
             return True
         else:
             return False
@@ -123,11 +124,11 @@ class ImbalanceAgent(Agent):
 
     def generate_order(self, ob) -> Order:
 
-        if (ob.imbalance_at_best_n(10) < 0.3) and (self.cash > 0):
+        if ob.imbalance_at_best_n(10) < 0.3:
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
                          Size=1, Price=ob.best_ask, Direction=1, SenderID='Imb1')
 
-        elif (self.exchange.orderbook.imbalance_at_best_n(10) > 0.7) and (self.assets > 0):
+        elif ob.imbalance_at_best_n(10) > 0.7:
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
                          Size=1, Price=ob.best_bid, Direction=-1, SenderID='Imb1')
 
@@ -143,11 +144,11 @@ class ImbalanceAgent(Agent):
 class BollingerAgent(Agent):
 
     def get_action(self, ob):
-        if math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2] / 60):
+        if math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]) and (math.floor(self.exchange.orderbook.time) % 10 == 0):
             upper = self.bollinger_bands()[0]
             lower = self.bollinger_bands()[1]
 
-            if (ob.midprice > upper) or (ob.midprice < lower):
+            if ((self.assets > 0) and (ob.best_ask > upper)) or ((self.cash > 0) and (ob.best_bid < lower)):
                 return True
             else:
                 return False
@@ -163,7 +164,7 @@ class BollingerAgent(Agent):
         upper = self.bollinger_bands()[0]
         lower = self.bollinger_bands()[1]
 
-        if (ob.best_ask < lower) and (self.cash > 0):
+        if (ob.best_bid < lower) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
                          Size=1, Price=ob.best_ask, Direction=1, SenderID='Bol1')
@@ -194,9 +195,8 @@ class BollingerAgent(Agent):
 
     def bollinger_bands(self):
 
-        data = [x[1] for x in self.exchange.ts_data]
-        rolling_mean = pd.Series(data[-300:]).mean()
-        rolling_std = pd.Series(data[-300:]).std()
+        rolling_mean = self.data[-30:].mean()
+        rolling_std = self.data[-30:].std()
 
         # Calculate the upper and lower Bollinger Bands
         upper_band = rolling_mean + rolling_std*1.5
@@ -208,9 +208,12 @@ class BollingerAgent(Agent):
 class RandomForest(Agent):
 
     def get_action(self, ob):
-        if math.floor(ob.time / 60) != math.floor(self.exchange.time_log[-2]/60):
-            if (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 1) or\
-                    (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 0):
+        if (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]))\
+                    & (math.floor(self.exchange.orderbook.time) % 10 == 0):
+            if ((self.model.predict([np.array(self.data.iloc[-1, 1:])]) == 1) and
+                    (self.model.predict([np.array(self.data.iloc[-2, 1:])]) == 1)) or\
+                    ((self.model.predict([np.array(self.data.iloc[-1, 1:])]) == 0)
+                     and (self.model.predict([np.array(self.data.iloc[-2, 1:])]) == 0)):
                 return True
             else:
                 return False
@@ -223,12 +226,12 @@ class RandomForest(Agent):
 
     def generate_order(self, ob) -> Order:
 
-        if (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 2) and (self.cash > 0):
+        if (self.model.predict([np.array(self.data.iloc[-1, 1:])]) == 1) and (self.cash > 0):
 
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-100,
                          Size=1, Price=ob.best_ask, Direction=1, SenderID='RF1')
 
-        elif (self.model.predict([np.array(self.data.iloc[-1,1:])]) == 1) and (self.assets > 0):
+        elif (self.model.predict([np.array(self.data.iloc[-1, 1:])]) == 0) and (self.assets > 0):
             return Order(Time=ob.time + 0.001, EventType=1, OrderID=-200,
                          Size=1, Price=ob.best_bid, Direction=-1, SenderID='RF1')
 
@@ -254,21 +257,15 @@ class RandomForest(Agent):
 
     def train_my_model(self):
 
-        df = self.data
-        df["Time"] = df["Time"].apply(lambda x: np.floor(x))
-        table = df.groupby(['Time']).mean()
-
-        features = table
+        features = self.data.copy()
         features["close_shifted"] = features["Midprice"].shift(1)
         features["diff"] = features["Midprice"] - features["close_shifted"]
 
         def fun(x):
-            if x <= -50:
-                return 1
-            elif x >= 50:
-                return 2
-            else:
+            if x <= 0:
                 return 0
+            else:
+                return 1
 
         features["actual"] = features["diff"].apply(fun)
         features = features.reset_index()
@@ -282,7 +279,7 @@ class RandomForest(Agent):
 
 
         # creating a RF classifier
-        self.model= RandomForestClassifier(n_estimators=100)
+        self.model = RandomForestClassifier(n_estimators=100, random_state=123)
 
         # Training the model on the training dataset
         # fit function is used to train the model using the training sets as parameters

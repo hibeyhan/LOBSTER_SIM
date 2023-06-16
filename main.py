@@ -115,14 +115,50 @@ class Simulator:
                 self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
                 self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
-        self.exchange.agents["RF1"].data = pd.DataFrame(self.df_for_ml)
+
+
+        for i in np.array(self.messages.train_period_messages):
+            #this is to section that keep records of second data
+            order = self.exchange.agents["Ex1"].generate_order(i)
+
+            self.exchange.order_evaluation(order)
+
+            self.exchange.orderbook.time = order.Time
+
+            self.exchange.time_log.append(self.exchange.orderbook.time)
+
+            self.exchange.store_timeseries_data(order)
+
+            self.historical_midprice[0].append(self.exchange.orderbook.time)
+
+            self.historical_midprice[1].append(self.exchange.orderbook.midprice)
+
+            # saves moments of orderbook but it increase running time
+
+            self.df_for_ml["Time"].append(self.exchange.orderbook.time)
+            self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
+            self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
+            self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
+            self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
+            self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
+            self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
+            self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
+            self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
+            self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
+
+        df1 = pd.DataFrame(self.df_for_ml)
+        df1["Time"] = df1["Time"].apply(lambda x: np.floor(x / 10))
+        df1 = df1.groupby(['Time'], as_index=False).mean()
+        self.exchange.agents["RF1"].data = df1.copy()
+        self.exchange.agents["Imb1"].data = df1["imbalance10"].copy()
+        self.exchange.agents["Bol1"].data = df1["Midprice"].copy()
         self.exchange.agents["RF1"].train_my_model()
 
     #this step is trading period, all agents come into the market and post orders
     def trading_run(self):
 
         self.order_id_list = list(self.messages.messages.OrderID)
-        sil=0
+
         for i in np.array(self.messages.trade_period_messages):
 
             order = self.exchange.agents["Ex1"].generate_order(i)
@@ -166,14 +202,14 @@ class Simulator:
             self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
             self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
-            if math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]):
-
-                sil = sil+1
-                print(sil, self.exchange.orderbook.time)
+            if (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]))\
+                    & (math.floor(self.exchange.orderbook.time) % 10 == 0):
                 df1 = pd.DataFrame(self.df_for_ml)
-                df1["Time"] = df1["Time"].apply(lambda x: np.floor(x/15))
+                df1["Time"] = df1["Time"].apply(lambda x: np.floor(x/10))
                 df1 = df1.groupby(['Time'], as_index=False).mean()
                 self.exchange.agents["RF1"].data = df1.copy()
+                self.exchange.agents["Imb1"].data = df1["imbalance10"].copy()
+                self.exchange.agents["Bol1"].data = df1["Midprice"].copy()
 
             print(dt.datetime.fromtimestamp(order.Time).time())
 

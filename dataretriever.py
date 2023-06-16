@@ -45,9 +45,9 @@ class DataRetriever:
             self.messages[self.messages.Time < (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 37800)]
         self.train_period_messages =\
             self.messages[(self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() +
-                                                  37800)) and (self.messages.Time < (dt.datetime.strptime(self.trade_date,                                                                                                 '%Y-%m-%d').timestamp() + 37800+3600))]
+                                                  37800)) & (self.messages.Time < (dt.datetime.strptime(self.trade_date,'%Y-%m-%d').timestamp() +55800))]
         self.trade_period_messages =\
-            self.messages[self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 37800+3600)]
+            self.messages[self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 52200)]
 
 
     def get_orders(self, level=50):
