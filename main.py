@@ -4,6 +4,8 @@ from agent import ExchangeAgent
 from agent import ImbalanceAgent
 from agent import BollingerAgent
 from agent import RandomForest
+from agent import Regression
+from agent import RandomAgent
 import numpy as np
 import pandas as pd
 from dataretriever import DataRetriever
@@ -28,6 +30,7 @@ class Simulator:
             orderbook_moments={},
             time_log=[],
             submitted_orders=[],
+            agent_trade_freq= 10,
             order_id_list=[],
             df_for_ml = {"Time":[], "Midprice":[], "Spread":[], "imbalance1":[], "imbalance2":[], "imbalance3":[],
                          "imbalance4":[], "imbalance5":[],  "imbalance10":[],
@@ -44,6 +47,7 @@ class Simulator:
         self.orderbook_moments = orderbook_moments
         self.time_log = time_log
         self.submitted_orders = submitted_orders
+        self.agent_trade_freq = agent_trade_freq
         self.order_id_list = order_id_list
         self.df_for_ml = df_for_ml
 
@@ -58,30 +62,45 @@ class Simulator:
 
         #adding desired agents to the market
         #this ImbalanceAgent who take action on imbalance in limit order book
-        self.exchange.agents["Imb1"] = ImbalanceAgent(assets=10000, cash=10000*self.messages.messages.Price[1],
+        order_size = 10
+        self.exchange.agents["Rand"] = RandomAgent(assets=1000, cash=1000*self.messages.messages.Price[1],
                                                       exchange=self.exchange, sent_orders=[], executed_orders=[],
-                                                      historical_balance=[[],[]],  my_price_impact=[[],[]], model=[],
+                                                      historical_balance=[[],[]],  my_price_impact=[[],[]],
+                                                      trade_freq= self.agent_trade_freq,order_size=order_size, model=[],
+                                                      data=None)
+
+        self.exchange.agents["Imb1"] = ImbalanceAgent(assets=1000, cash=1000*self.messages.messages.Price[1],
+                                                      exchange=self.exchange, sent_orders=[], executed_orders=[],
+                                                      historical_balance=[[],[]],  my_price_impact=[[],[]],
+                                                      trade_freq= self.agent_trade_freq, order_size=order_size,model=[],
                                                       data=None)
 
         #this is exchange agent who posts historical LOBSTER orders
-        self.exchange.agents["Ex1"] = ExchangeAgent(assets=10000, cash=10000*self.messages.messages.Price[1],
+        self.exchange.agents["Ex1"] = ExchangeAgent(assets=1000, cash=1000*self.messages.messages.Price[1],
                                                     exchange=self.exchange, sent_orders=[], executed_orders=[],
-                                                    historical_balance=[[],[]], my_price_impact=[[],[]], model=[],
+                                                    historical_balance=[[],[]], my_price_impact=[[],[]],
+                                                    trade_freq= self.agent_trade_freq, order_size=order_size,model=[],
                                                     data = None)
 
         #This BollingerAgent who take action on Bollinger Bands
-        self.exchange.agents["Bol1"] = BollingerAgent(assets=10000, cash=10000*self.messages.messages.Price[1],
+        self.exchange.agents["Bol1"] = BollingerAgent(assets=1000, cash=1000*self.messages.messages.Price[1],
                                                       exchange=self.exchange, sent_orders=[], executed_orders=[],
-                                                      historical_balance=[[],[]], my_price_impact=[[],[]], model=[],
+                                                      historical_balance=[[],[]], my_price_impact=[[],[]],
+                                                      trade_freq= self.agent_trade_freq,order_size=order_size,model=[],
                                                       data=None)
 
 
-        self.exchange.agents["RF1"] = RandomForest(assets=10000, cash=10000 * self.messages.messages.Price[1],
+        self.exchange.agents["RF1"] = RandomForest(assets=1000, cash=1000 * self.messages.messages.Price[1],
                                                    exchange=self.exchange, sent_orders=[], executed_orders=[],
-                                                   historical_balance=[[], []], my_price_impact = [[],[]],
+                                                   historical_balance=[[], []], my_price_impact = [[],[]],order_size=order_size,
+                                                   trade_freq= self.agent_trade_freq,
                                                    model=None, data=None)
 
-
+        self.exchange.agents["Reg1"] = Regression(assets=1000, cash=1000*self.messages.messages.Price[1],
+                                                  exchange=self.exchange, sent_orders=[], executed_orders=[],
+                                                  historical_balance=[[],[]],  my_price_impact=[[],[]],
+                                                  trade_freq= self.agent_trade_freq,order_size=order_size,model=[],
+                                                  data=None)
 
 
         #this loop takes a specified period for messages and ExchangeAgent feed them into the exchange, other agents do not take action at this step
@@ -101,20 +120,6 @@ class Simulator:
             self.historical_midprice[0].append(self.exchange.orderbook.time)
 
             self.historical_midprice[1].append(self.exchange.orderbook.midprice)
-
-            # saves moments of orderbook but it increase running time
-            if len(self.exchange.time_log) > 1000:
-                self.df_for_ml["Time"].append(self.exchange.orderbook.time)
-                self.df_for_ml["Midprice"].append(self.exchange.orderbook.midprice)
-                self.df_for_ml["Spread"].append(self.exchange.orderbook.spread)
-                self.df_for_ml["imbalance1"].append(self.exchange.orderbook.imbalance_at_best_prices)
-                self.df_for_ml["imbalance2"].append(self.exchange.orderbook.imbalance_at_best_n(2))
-                self.df_for_ml["imbalance3"].append(self.exchange.orderbook.imbalance_at_best_n(3))
-                self.df_for_ml["imbalance4"].append(self.exchange.orderbook.imbalance_at_best_n(4))
-                self.df_for_ml["imbalance5"].append(self.exchange.orderbook.imbalance_at_best_n(5))
-                self.df_for_ml["imbalance10"].append(self.exchange.orderbook.imbalance_at_best_n(10))
-                self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
-
 
 
         for i in np.array(self.messages.train_period_messages):
@@ -147,12 +152,14 @@ class Simulator:
             self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
         df1 = pd.DataFrame(self.df_for_ml)
-        df1["Time"] = df1["Time"].apply(lambda x: np.floor(x / 10))
+        df1["Time"] = df1["Time"].apply(lambda x: np.floor(x / self.agent_trade_freq))
         df1 = df1.groupby(['Time'], as_index=False).mean()
         self.exchange.agents["RF1"].data = df1.copy()
-        self.exchange.agents["Imb1"].data = df1["imbalance10"].copy()
+        self.exchange.agents["Reg1"].data = df1.copy()
+        self.exchange.agents["Imb1"].data = df1[["imbalance3", "imbalance10"]].copy()
         self.exchange.agents["Bol1"].data = df1["Midprice"].copy()
         self.exchange.agents["RF1"].train_my_model()
+        self.exchange.agents["Reg1"].train_my_model()
 
     #this step is trading period, all agents come into the market and post orders
     def trading_run(self):
@@ -181,6 +188,11 @@ class Simulator:
 
             self.historical_midprice[1].append(self.exchange.orderbook.midprice)
 
+            for j in list(self.exchange.agents.keys()):
+                self.exchange.agents[j].balance_at_each_moment[0].append(self.exchange.orderbook.time)
+                self.exchange.agents[j].balance_at_each_moment[1].append(self.exchange.agents[j].current_balance)
+
+
             #self.exchange.time_log.append(self.exchange.orderbook.time)
 
             # saves moments of orderbook but it increase running time
@@ -203,12 +215,13 @@ class Simulator:
             self.df_for_ml["imbalance20"].append(self.exchange.orderbook.imbalance_at_best_n(20))
 
             if (math.floor(self.exchange.orderbook.time) != math.floor(self.exchange.time_log[-2]))\
-                    & (math.floor(self.exchange.orderbook.time) % 10 == 0):
-                df1 = pd.DataFrame(self.df_for_ml)
-                df1["Time"] = df1["Time"].apply(lambda x: np.floor(x/10))
+                    & (math.floor(self.exchange.orderbook.time) % self.agent_trade_freq == 0):
+                df1 = pd.DataFrame(self.df_for_ml).iloc[:-2]
+                df1["Time"] = df1["Time"].apply(lambda x: np.floor(x/self.agent_trade_freq ))
                 df1 = df1.groupby(['Time'], as_index=False).mean()
                 self.exchange.agents["RF1"].data = df1.copy()
-                self.exchange.agents["Imb1"].data = df1["imbalance10"].copy()
+                self.exchange.agents["Reg1"].data = df1.copy()
+                self.exchange.agents["Imb1"].data = df1[["imbalance3", "imbalance10"]].copy()
                 self.exchange.agents["Bol1"].data = df1["Midprice"].copy()
 
             print(dt.datetime.fromtimestamp(order.Time).time())
@@ -231,9 +244,12 @@ class Simulator:
 
                 order_to_submit.OrderId = max(self.order_id_list) + 1
 
+                order_to_submit.Time = order_to_submit.Time + 0.0000001
+
                 self.submitted_orders.append(order_to_submit)
 
                 self.order_id_list.append(order_to_submit.OrderId)
+
 
                 price_impact_before = self.exchange.orderbook.midprice
 
@@ -250,11 +266,13 @@ class Simulator:
                 self.exchange.agents[i].my_price_impact[1].append((price_impact_after-price_impact_before))
 
                 if order_to_submit in self.exchange.executed_orders:
+
                     self.exchange.agents[i].clear_order(order_to_submit)
 
                     self.exchange.agents[i].historical_balance[0].append(self.exchange.orderbook.time)
 
                     self.exchange.agents[i].historical_balance[1].append(self.exchange.agents[i].current_balance)
+
 
     #this is function summarize descriptives of stock price
 

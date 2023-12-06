@@ -42,12 +42,12 @@ class DataRetriever:
         self.messages = messages
 
         self.initializing_period_messages =\
-            self.messages[self.messages.Time < (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 37800)]
+            self.messages[self.messages.Time < (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 36000)]
         self.train_period_messages =\
             self.messages[(self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() +
-                                                  37800)) & (self.messages.Time < (dt.datetime.strptime(self.trade_date,'%Y-%m-%d').timestamp() +55800))]
+                                                  36000)) & (self.messages.Time < (dt.datetime.strptime(self.trade_date,'%Y-%m-%d').timestamp() + 50400))]
         self.trade_period_messages =\
-            self.messages[self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 52200)]
+            self.messages[self.messages.Time >= (dt.datetime.strptime(self.trade_date, '%Y-%m-%d').timestamp() + 50400)]
 
 
     def get_orders(self, level=50):
